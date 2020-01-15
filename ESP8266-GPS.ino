@@ -3,14 +3,23 @@
 #include <DNSServer.h>        //DNSServer.h .- Local WebServer usado para servir el portal de configuración (https://github.com/zhouhan0126/DNSServer---esp32)
 #include <WiFiManager.h>      //WiFiManager.h .- WiFi Configuration Magic (https://github.com/zhouhan0126/DNSServer---esp32) >> https://github.com/zhouhan0126/DNSServer---esp32 (ORIGINAL)
 #include <ESP8266HTTPUpdateServer.h>
+#include <TinyGPS++.h> //Libreria para mostrar data de GPS
+#include <SoftwareSerial.h>
 
+SoftwareSerial ss(4, 5);              // The serial connection to the GPS device
 const int PIN_AP = 2;                 // pulsador para volver al modo AP
 const char *AP_SSID = "ESP_AP";       // nombre del access point para configurar la conexión WiFi
 const char *AP_PASSWORD = "12345678"; // password del access point
 
+// variables para la muestra de datos del GPS
+TinyGPSPlus gps;
+float latitude, longitude;
+int year, month, date, hour, minute, second;
+String date_str, time_str, lat_str, lng_str;
+int pm;
+
 //declaración de objeto wifiManager
 WiFiManager wifiManager;
-
 
 ESP8266WebServer webServer(80);
 ESP8266HTTPUpdateServer httpUpdateServer;
@@ -59,11 +68,23 @@ void setup()
 
   webServer.on("/", handleRoot);
 
-  webServer.on("/all", HTTP_GET, [](){
+  webServer.on("/gps", HTTP_GET, []() {
     webServer.sendHeader("Access-Control-Allow-Origin", "*");
     webServer.sendHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
     webServer.sendHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    webServer.send(200, "text/plain", "chico te paseo");
+    
+    gps.encode(ss.read()); // leemos la posicion GPS
+    Serial.print("LAT=");   Serial.println(gps.location.lat(), 6);
+    Serial.print("LONG=");  Serial.println(gps.location.lng(), 6);
+    Serial.print("ALT=");   Serial.println(gps.altitude.meters());
+    Serial.print("DATE=");   Serial.println(gps.date.value());
+    Serial.print("TIME=");   Serial.println(gps.time.value());
+
+    String response = "";
+    response.concat(gps.location.lat());
+    response.concat(",");
+    response.concat(gps.location.lng());
+    webServer.send(200, "text/plain", response);
   });
 
   webServer.begin(); // iniciamos el servidor web
@@ -71,8 +92,8 @@ void setup()
 
 void loop()
 {
-  /* //si el botón se ha presionado
-  if (digitalRead(PIN_AP) == HIGH)
+  //si el botón se ha presionado
+  /* if (digitalRead(PIN_AP) == HIGH)
   {
     Serial.println("reajustar"); //resetear intenta abrir el portal
     if (!wifiManager.startConfigPortal(AP_SSID, AP_PASSWORD))
@@ -84,11 +105,13 @@ void loop()
     }
     Serial.println("conectado ESP_AP!!!");
   } */
-
   webServer.handleClient();
-
 }
 
-void handleRoot() {
-  webServer.send(200, "text/plain", "hello from esp8266!");
+void handleRoot()
+{
+  webServer.sendHeader("Access-Control-Allow-Origin", "*");
+  webServer.sendHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+  webServer.sendHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  webServer.send(200, "text/plain", "Chico te paseo!!!");
 }
